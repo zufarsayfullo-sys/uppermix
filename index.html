@@ -324,16 +324,16 @@ const QUESTIONS = [
   {
     keyword: "IF",
     sentence1: '"Does Azamat play football?" John asked her sister.',
-    sentence2: 'John asked her sister ______ Azamat played football.',
+    sentence2: 'John asked her sister ______.',
     accepted: ["if azamat played football"],
-    display: "John asked her sister ______ Azamat played football.",  // FIXED: shows only gap
+    display: "John asked her sister ______ .",  // FIXED: shows only gap
     exp: 'In reported questions with <strong>if</strong>, we use statement word order and backshift the tense: <em>Does → played</em>. → <strong>if Azamat played football</strong>'
   },
   {
     keyword: "MUST",
     sentence1: "I am sure it was Amir at the cinema.",
     sentence2: "It ______ Amir at the cinema.",
-    accepted: ["must have been amir"],
+    accepted: ["must have been"],
     display: "It ______ Amir at the cinema.",
     exp: 'We use <strong>must have been</strong> to express certainty about a past event. → <strong>must have been Amir</strong>'
   },
@@ -348,9 +348,9 @@ const QUESTIONS = [
   {
     keyword: "UNLESS",
     sentence1: "If I don't study well, I will fail the unit test.",
-    sentence2: "______ I study well, I will fail the unit test.",
+    sentence2: "______ , I will fail the unit test.",
     accepted: ["unless i study well"],
-    display: "______ I study well, I will fail the unit test.",  // FIXED: shows only gap at the beginning
+    display: "______ , I will fail the unit test.",  // FIXED: shows only gap at the beginning
     exp: '<strong>Unless</strong> = <em>if … not</em>. The positive verb is kept: <em>If I don\'t study</em> → <em>Unless I study</em>. → <strong>Unless I study well</strong>'
   },
   {

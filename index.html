@@ -317,9 +317,8 @@
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzvhd9K2CVC9_EPkhAEYFDp8K1CBpGUWNrEAEVC4w4Q8eHh5uDFO_aaKPMcH-Tajv5U/exec';
 
 // ═══════════════════════════════════════════════════════════════════════
-// EXACTLY 5 QUESTIONS — as specified. No additions.
-// accepted: array of all valid answers (normalised lowercase, trimmed)
-// The gap in sentence2 is shown with "______" as a placeholder
+// EXACTLY 5 QUESTIONS — strict validation. Answers must match exactly (normalized).
+// accepted: array of ALL valid exact normalized forms.
 // ═══════════════════════════════════════════════════════════════════════
 const QUESTIONS = [
   {
@@ -334,7 +333,7 @@ const QUESTIONS = [
     keyword: "MUST",
     sentence1: "I am sure it was Amir at the cinema.",
     sentence2: "It ______ Amir at the cinema.",
-    accepted: ["must have been amir", "must have been"],
+    accepted: ["must have been amir"],
     display: "It ______ Amir at the cinema.",
     exp: 'We use <strong>must have been</strong> to express certainty about a past event. → <strong>must have been Amir</strong>'
   },
@@ -342,7 +341,7 @@ const QUESTIONS = [
     keyword: "DEMANDED",
     sentence1: "She insisted on buying a new iPhone.",
     sentence2: "She ______ a new iPhone.",
-    accepted: ["demanded to buy", "demanded buying"],
+    accepted: ["demanded to buy"],
     display: "She ______ a new iPhone.",
     exp: '<strong>demand</strong> is followed by a to-infinitive: <em>demanded to buy</em>. Compare: <em>insist on + -ing</em> vs <em>demand + to-infinitive</em>. → <strong>demanded to buy</strong>'
   },
@@ -350,7 +349,7 @@ const QUESTIONS = [
     keyword: "UNLESS",
     sentence1: "If I don't study well, I will fail the unit test.",
     sentence2: "______ I study well, I will fail the unit test.",
-    accepted: ["unless i study well", "unless"],
+    accepted: ["unless i study well"],
     display: "______ I study well, I will fail the unit test.",
     exp: '<strong>Unless</strong> = <em>if … not</em>. The positive verb is kept: <em>If I don\'t study</em> → <em>Unless I study</em>. → <strong>Unless I study well</strong>'
   },
@@ -358,7 +357,7 @@ const QUESTIONS = [
     keyword: "OBJECTION",
     sentence1: "My mother didn't object to my getting up late.",
     sentence2: "My mother had no ______ getting up late.",
-    accepted: ["objection to my", "objection to me"],
+    accepted: ["objection to my"],
     display: "My mother had no ______ getting up late.",
     exp: 'The noun phrase is <strong>have no objection to</strong> + possessive/object + <em>-ing</em>. → <strong>objection to my</strong> getting up late'
   }
@@ -420,7 +419,7 @@ function updateProg(){
     s.className='prog-seg';
     if(segStates[i]==='correct')s.classList.add('correct');
     else if(segStates[i]==='wrong')s.classList.add('wrong');
-    else if(i===current&&segStates[i]==='pending')s.classList.add('active');
+    else if(i===current && segStates[i]==='pending')s.classList.add('active');
   }
 }
 
@@ -447,63 +446,82 @@ function loadQ(){
   updateProg();
 }
 
+// STRICT NORMALIZATION: collapse spaces, remove extra punctuation variations, lowercase
 function normalise(str){
   return str.toLowerCase()
-    .replace(/['']/g,"'")
-    .replace(/\s+/g,' ')
+    .replace(/['']/g, "'")        // normalize apostrophes
+    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')  // strip punctuation
+    .replace(/\s+/g, ' ')         // collapse multiple spaces
     .trim();
 }
 
+// STRICT WORD COUNT VALIDATION (2-6 words including keyword)
+function isValidWordCount(answerRaw, keyword){
+  const words = answerRaw.trim().split(/\s+/).filter(w => w.length > 0);
+  if(words.length < 2 || words.length > 6) return false;
+  // keyword must appear exactly (case-insensitive)
+  const keywordLower = keyword.toLowerCase();
+  return words.some(w => w.toLowerCase() === keywordLower);
+}
+
 function checkAnswer(){
-  if(answered)return;
-  const inp=document.getElementById('answer-input');
-  const raw=inp.value.trim();
-  if(!raw)return;
+  if(answered) return;
+  const inp = document.getElementById('answer-input');
+  const raw = inp.value.trim();
+  if(!raw) return;
+  
   answered=true;
-
-  const q=QUESTIONS[current];
-  const norm=normalise(raw);
-  const isCorrect=q.accepted.some(a=>norm===normalise(a)||norm.includes(normalise(a))||normalise(a).includes(norm));
-
+  const q = QUESTIONS[current];
+  const normInput = normalise(raw);
+  
+  // STRICT VALIDATION: word count + keyword present
+  const validWordCount = isValidWordCount(raw, q.keyword);
+  const isExactMatch = q.accepted.some(a => normInput === normalise(a));
+  
+  // Answer is correct ONLY if word count is valid AND exact match
+  const isCorrect = validWordCount && isExactMatch;
+  
   inp.disabled=true;
   document.getElementById('check-btn').style.display='none';
-  const fb=document.getElementById('feedback');
-
+  const fb = document.getElementById('feedback');
+  
   if(isCorrect){
     inp.className='answer-input correct-input';
-    score++;segStates[current]='correct';
+    score++; segStates[current]='correct';
     fb.className='feedback ok show';
     fb.innerHTML=`✓ Correct! ${q.exp}`;
-    answerLog.push({q:q.sentence1,keyword:q.keyword,given:raw,correct:q.accepted[0],result:'correct'});
+    answerLog.push({q:q.sentence1, keyword:q.keyword, given:raw, correct:q.accepted[0], result:'correct'});
   } else {
     inp.className='answer-input wrong-input';
-    wrongCount++;segStates[current]='wrong';
+    wrongCount++; segStates[current]='wrong';
     fb.className='feedback bad show';
-    fb.innerHTML=`✗ Not quite. A correct answer: <strong>${q.accepted[0]}</strong>. ${q.exp}`;
-    answerLog.push({q:q.sentence1,keyword:q.keyword,given:raw,correct:q.accepted[0],result:'wrong'});
+    let reason = '';
+    if(!validWordCount) reason = ' (Your answer must contain 2-6 words including the keyword.)';
+    fb.innerHTML=`✗ Not quite.${reason} A correct answer: <strong>${q.accepted[0]}</strong>. ${q.exp}`;
+    answerLog.push({q:q.sentence1, keyword:q.keyword, given:raw, correct:q.accepted[0], result:'wrong'});
   }
   updateProg();
   document.getElementById('next-btn').style.display='inline-block';
 }
 
 function skipQ(){
-  if(answered)return;
-  answered=true;skipCount++;segStates[current]='wrong';
-  const q=QUESTIONS[current];
-  const inp=document.getElementById('answer-input');
+  if(answered) return;
+  answered=true; skipCount++; segStates[current]='wrong';
+  const q = QUESTIONS[current];
+  const inp = document.getElementById('answer-input');
   inp.disabled=true;
   document.getElementById('check-btn').style.display='none';
-  const fb=document.getElementById('feedback');
+  const fb = document.getElementById('feedback');
   fb.className='feedback bad show';
   fb.innerHTML=`Skipped. A correct answer: <strong>${q.accepted[0]}</strong>. ${q.exp}`;
-  answerLog.push({q:q.sentence1,keyword:q.keyword,given:'(skipped)',correct:q.accepted[0],result:'skipped'});
+  answerLog.push({q:q.sentence1, keyword:q.keyword, given:'(skipped)', correct:q.accepted[0], result:'skipped'});
   updateProg();
   document.getElementById('next-btn').style.display='inline-block';
 }
 
 function nextQ(){
   current++;
-  if(current>=5)endQuiz();
+  if(current>=5) endQuiz();
   else loadQ();
 }
 

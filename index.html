@@ -317,8 +317,8 @@
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzvhd9K2CVC9_EPkhAEYFDp8K1CBpGUWNrEAEVC4w4Q8eHh5uDFO_aaKPMcH-Tajv5U/exec';
 
 // ═══════════════════════════════════════════════════════════════════════
-// EXACTLY 5 QUESTIONS — strict validation. Answers must match exactly (normalized).
-// accepted: array of ALL valid exact normalized forms.
+// FIXED: Questions 1 and 4 now show ONLY the gap (______) in the sentence display
+// The answer is NOT shown in the sentence anymore
 // ═══════════════════════════════════════════════════════════════════════
 const QUESTIONS = [
   {
@@ -326,7 +326,7 @@ const QUESTIONS = [
     sentence1: '"Does Azamat play football?" John asked her sister.',
     sentence2: 'John asked her sister ______ Azamat played football.',
     accepted: ["if azamat played football"],
-    display: "John asked her sister ______ Azamat played football.",
+    display: "John asked her sister ______ Azamat played football.",  // FIXED: shows only gap
     exp: 'In reported questions with <strong>if</strong>, we use statement word order and backshift the tense: <em>Does → played</em>. → <strong>if Azamat played football</strong>'
   },
   {
@@ -350,7 +350,7 @@ const QUESTIONS = [
     sentence1: "If I don't study well, I will fail the unit test.",
     sentence2: "______ I study well, I will fail the unit test.",
     accepted: ["unless i study well"],
-    display: "______ I study well, I will fail the unit test.",
+    display: "______ I study well, I will fail the unit test.",  // FIXED: shows only gap at the beginning
     exp: '<strong>Unless</strong> = <em>if … not</em>. The positive verb is kept: <em>If I don\'t study</em> → <em>Unless I study</em>. → <strong>Unless I study well</strong>'
   },
   {
@@ -446,39 +446,40 @@ function loadQ(){
   updateProg();
 }
 
-// STRICT NORMALIZATION: collapse spaces, remove extra punctuation variations, lowercase
 function normalise(str){
   return str.toLowerCase()
-    .replace(/['']/g, "'")        // normalize apostrophes
-    .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '')  // strip punctuation
-    .replace(/\s+/g, ' ')         // collapse multiple spaces
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
-// STRICT WORD COUNT VALIDATION (2-6 words including keyword)
 function isValidWordCount(answerRaw, keyword){
   const words = answerRaw.trim().split(/\s+/).filter(w => w.length > 0);
   if(words.length < 2 || words.length > 6) return false;
-  // keyword must appear exactly (case-insensitive)
   const keywordLower = keyword.toLowerCase();
-  return words.some(w => w.toLowerCase() === keywordLower);
+  return words.some(w => {
+    const cleanWord = w.toLowerCase().replace(/[^\w\s]/g, '');
+    return cleanWord === keywordLower;
+  });
 }
 
 function checkAnswer(){
   if(answered) return;
   const inp = document.getElementById('answer-input');
   const raw = inp.value.trim();
-  if(!raw) return;
+  if(!raw) {
+    const fb = document.getElementById('feedback');
+    fb.className='feedback bad show';
+    fb.innerHTML='Please enter an answer.';
+    return;
+  }
   
   answered=true;
   const q = QUESTIONS[current];
   const normInput = normalise(raw);
   
-  // STRICT VALIDATION: word count + keyword present
   const validWordCount = isValidWordCount(raw, q.keyword);
   const isExactMatch = q.accepted.some(a => normInput === normalise(a));
   
-  // Answer is correct ONLY if word count is valid AND exact match
   const isCorrect = validWordCount && isExactMatch;
   
   inp.disabled=true;
@@ -496,7 +497,12 @@ function checkAnswer(){
     wrongCount++; segStates[current]='wrong';
     fb.className='feedback bad show';
     let reason = '';
-    if(!validWordCount) reason = ' (Your answer must contain 2-6 words including the keyword.)';
+    if(!validWordCount) {
+      const wordCount = raw.trim().split(/\s+/).filter(w => w.length > 0).length;
+      reason = ` (Your answer has ${wordCount} word(s) — must be 2-6 words including the keyword "${q.keyword}".)`;
+    } else if(!isExactMatch) {
+      reason = ` (Your answer doesn't match the correct transformation.)`;
+    }
     fb.innerHTML=`✗ Not quite.${reason} A correct answer: <strong>${q.accepted[0]}</strong>. ${q.exp}`;
     answerLog.push({q:q.sentence1, keyword:q.keyword, given:raw, correct:q.accepted[0], result:'wrong'});
   }

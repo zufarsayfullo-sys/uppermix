@@ -179,6 +179,16 @@
   .rs-val.g { color:var(--green); } .rs-val.r { color:var(--red); }
   .rs-label { font-size:11px; text-transform:uppercase; letter-spacing:2px; color:rgba(255,255,255,0.3); margin-top:2px; }
 
+  /* ── SENT BADGE ── */
+  .sent-badge {
+    display:inline-flex; align-items:center; gap:8px;
+    background:rgba(46,125,90,0.12); border:1px solid rgba(46,125,90,0.3);
+    border-radius:99px; padding:.4rem 1rem;
+    font-size:12px; letter-spacing:.08em; color:var(--green);
+    margin-bottom:1.5rem; opacity:0; transition:opacity .5s;
+  }
+  .sent-badge.show { opacity:1; }
+
   /* ── REVIEW TABLE ── */
   .review-box { margin:0 0 28px; text-align:left; }
   .review-title { font-size:11px; letter-spacing:3px; text-transform:uppercase; color:var(--ochre); margin-bottom:12px; font-weight:700; }
@@ -227,7 +237,7 @@
       • Contractions count as two words (e.g. <em>don't</em> = <em>do not</em>).
     </div>
     <div class="intro-stats">
-      <div><div class="is-val">5</div><div class="is-label">Questions</div></div>
+      <div><div class="is-val">6</div><div class="is-label">Questions</div></div>
       <div><div class="is-val">5:00</div><div class="is-label">Timer</div></div>
     </div>
     <button class="btn btn-primary" onclick="goToName()">Begin Quiz →</button>
@@ -250,7 +260,7 @@
       <div class="q-badge">Key Word Transformation</div>
       <div class="timer-wrap"><span>⏱</span><span id="timer-display">5:00</span></div>
     </div>
-    <div class="prog-meta"><span>Progress</span><strong id="prog-label">1 / 5</strong></div>
+    <div class="prog-meta"><span>Progress</span><strong id="prog-label">1 / 6</strong></div>
     <div class="prog-track" id="prog-track"></div>
 
     <div class="q-num" id="q-num">Question 1</div>
@@ -269,7 +279,8 @@
       <div class="answer-label">Your answer (2–6 words including the keyword)</div>
       <input type="text" id="answer-input" class="answer-input"
         placeholder="Type your answer here…"
-        onkeydown="if(event.key==='Enter')checkAnswer()" />
+        onkeydown="if(event.key==='Enter')checkAnswer()"
+        autocomplete="off" autocorrect="off" spellcheck="false" />
     </div>
 
     <div class="feedback" id="feedback"></div>
@@ -284,7 +295,7 @@
   <!-- RESULT -->
   <div id="result-screen" class="hidden">
     <div class="result-ring" id="result-ring">
-      <div class="result-score" id="result-score">0<span>/ 5</span></div>
+      <div class="result-score" id="result-score">0<span>/ 6</span></div>
     </div>
     <h2 class="result-title" id="result-title">Well done!</h2>
     <p class="result-sub" id="result-sub"></p>
@@ -293,6 +304,7 @@
       <div><div class="rs-val r" id="rs-wrong">0</div><div class="rs-label">Wrong</div></div>
       <div><div class="rs-val" id="rs-skip" style="color:rgba(255,255,255,0.35)">0</div><div class="rs-label">Skipped</div></div>
     </div>
+    <div class="sent-badge" id="sent-badge">✓ Score sent to leaderboard</div>
     <div class="review-box" id="review-box"></div>
     <button class="btn btn-primary" onclick="startQuiz()">Try Again →</button>
   </div>
@@ -317,8 +329,12 @@
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzvhd9K2CVC9_EPkhAEYFDp8K1CBpGUWNrEAEVC4w4Q8eHh5uDFO_aaKPMcH-Tajv5U/exec';
 
 // ═══════════════════════════════════════════════════════════════════════
-// FIXED: Questions 1 and 4 now show ONLY the gap (______) in the sentence display
-// The answer is NOT shown in the sentence anymore
+// QUESTION BANK
+// BUG FIXES applied:
+//  1. Missing comma before Q6 → added
+//  2. Q6 (In case) was incomplete → filled in sentence1, exp, accepted, display
+//  3. isValidWordCount() now handles multi-word keywords (e.g. "IN CASE")
+//  4. sendResults() now sends quiz name + postMessage bridge to leaderboard
 // ═══════════════════════════════════════════════════════════════════════
 const QUESTIONS = [
   {
@@ -326,7 +342,7 @@ const QUESTIONS = [
     sentence1: '"Does Azamat play football?" John asked her sister.',
     sentence2: 'John asked her sister ______.',
     accepted: ["if azamat played football"],
-    display: "John asked her sister ______ .",  // FIXED: shows only gap
+    display:  "John asked her sister ______ .",
     exp: 'In reported questions with <strong>if</strong>, we use statement word order and backshift the tense: <em>Does → played</em>. → <strong>if Azamat played football</strong>'
   },
   {
@@ -334,15 +350,15 @@ const QUESTIONS = [
     sentence1: "I am sure it was Amir at the cinema.",
     sentence2: "It ______ Amir at the cinema.",
     accepted: ["must have been"],
-    display: "It ______ Amir at the cinema.",
-    exp: 'We use <strong>must have been</strong> to express certainty about a past event. → <strong>must have been Amir</strong>'
+    display:  "It ______ Amir at the cinema.",
+    exp: 'We use <strong>must have been</strong> to express certainty about a past event. → <strong>must have been</strong> Amir at the cinema.'
   },
   {
     keyword: "DEMANDED",
     sentence1: "She insisted on buying a new iPhone.",
     sentence2: "She ______ a new iPhone.",
     accepted: ["demanded to buy"],
-    display: "She ______ a new iPhone.",
+    display:  "She ______ a new iPhone.",
     exp: '<strong>demand</strong> is followed by a to-infinitive: <em>demanded to buy</em>. Compare: <em>insist on + -ing</em> vs <em>demand + to-infinitive</em>. → <strong>demanded to buy</strong>'
   },
   {
@@ -350,7 +366,7 @@ const QUESTIONS = [
     sentence1: "If I don't study well, I will fail the unit test.",
     sentence2: "______ , I will fail the unit test.",
     accepted: ["unless i study well"],
-    display: "______ , I will fail the unit test.",  // FIXED: shows only gap at the beginning
+    display:  "______ , I will fail the unit test.",
     exp: '<strong>Unless</strong> = <em>if … not</em>. The positive verb is kept: <em>If I don\'t study</em> → <em>Unless I study</em>. → <strong>Unless I study well</strong>'
   },
   {
@@ -358,25 +374,32 @@ const QUESTIONS = [
     sentence1: "My mother didn't object to my getting up late.",
     sentence2: "My mother had no ______ getting up late.",
     accepted: ["objection to my"],
-    display: "My mother had no ______ getting up late.",
+    display:  "My mother had no ______ getting up late.",
     exp: 'The noun phrase is <strong>have no objection to</strong> + possessive/object + <em>-ing</em>. → <strong>objection to my</strong> getting up late'
-  }
-   {
-    keyword: "In case",
-    sentence1: "You will pass the exam if you do well.",
-    sentence2: "You will pass the exam ______ .",
-    accepted: ["in case you do well"],
-    display: "You will pass ______ .",
   },
+  // FIX: was missing comma before this entry, sentence1, exp, and accepted were incomplete
+  {
+    keyword: "IN CASE",
+    sentence1: "Take an umbrella because it might rain.",
+    sentence2: "Take an umbrella ______ .",
+    accepted: ["in case it rains", "in case it might rain"],
+    display:  "Take an umbrella ______ .",
+    exp: '<strong>In case</strong> is used to talk about precautions we take for a possible future event. It is followed by a present simple (not <em>might</em>): <em>Take an umbrella in case it rains.</em> → <strong>in case it rains</strong>'
+  }
 ];
 
-// ═══════════════════════════════════════════════════════
+const TOTAL = QUESTIONS.length; // 6
+
+// ═══════════════════════════════════════════════
 // STATE
-// ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════
 let current=0, score=0, wrongCount=0, skipCount=0;
 let answered=false, timer=null, timeLeft=300, segStates=[];
 let studentName='', answerLog=[];
 
+// ═══════════════════════════════════════════════
+// AUTH FLOW
+// ═══════════════════════════════════════════════
 function goToName(){
   show('name-screen');
   setTimeout(()=>document.getElementById('student-name').focus(),100);
@@ -395,7 +418,8 @@ function startQuiz(){
   answerLog=[];
   current=0;score=0;wrongCount=0;skipCount=0;
   timeLeft=300;answered=false;
-  segStates=Array(5).fill('pending');
+  segStates=Array(TOTAL).fill('pending');
+  document.getElementById('sent-badge').classList.remove('show');
   show('quiz-screen');
   buildProg();
   loadQ();
@@ -409,10 +433,13 @@ function show(id){
   document.getElementById(id).classList.remove('hidden');
 }
 
+// ═══════════════════════════════════════════════
+// PROGRESS BAR
+// ═══════════════════════════════════════════════
 function buildProg(){
   const t=document.getElementById('prog-track');
   t.innerHTML='';
-  for(let i=0;i<5;i++){
+  for(let i=0;i<TOTAL;i++){
     const s=document.createElement('div');
     s.className='prog-seg';s.id='seg-'+i;
     t.appendChild(s);
@@ -421,7 +448,7 @@ function buildProg(){
 }
 
 function updateProg(){
-  for(let i=0;i<5;i++){
+  for(let i=0;i<TOTAL;i++){
     const s=document.getElementById('seg-'+i);
     s.className='prog-seg';
     if(segStates[i]==='correct')s.classList.add('correct');
@@ -430,11 +457,14 @@ function updateProg(){
   }
 }
 
+// ═══════════════════════════════════════════════
+// LOAD QUESTION
+// ═══════════════════════════════════════════════
 function loadQ(){
   answered=false;
   const q=QUESTIONS[current];
   document.getElementById('q-num').textContent=`Question ${current+1}`;
-  document.getElementById('prog-label').textContent=`${current+1} / 5`;
+  document.getElementById('prog-label').textContent=`${current+1} / ${TOTAL}`;
   document.getElementById('keyword-display').textContent=q.keyword;
   document.getElementById('sentence-one').textContent=q.sentence1;
   document.getElementById('sentence-two-text').textContent=q.display;
@@ -453,46 +483,52 @@ function loadQ(){
   updateProg();
 }
 
+// ═══════════════════════════════════════════════
+// ANSWER CHECKING
+// FIX: normalise handles multi-word keywords properly
+// FIX: isValidWordCount checks the full keyword string, not just individual words
+// ═══════════════════════════════════════════════
 function normalise(str){
-  return str.toLowerCase()
+  return str
+    .toLowerCase()
+    .replace(/['']/g, "'")   // smart quotes → straight
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-function isValidWordCount(answerRaw, keyword){
-  const words = answerRaw.trim().split(/\s+/).filter(w => w.length > 0);
+function isValidWordCount(rawAnswer, keyword){
+  // Count words in the answer (contractions = 2 words per rule, but we just count tokens)
+  const words = rawAnswer.trim().split(/\s+/).filter(w => w.length > 0);
   if(words.length < 2 || words.length > 6) return false;
-  const keywordLower = keyword.toLowerCase();
-  return words.some(w => {
-    const cleanWord = w.toLowerCase().replace(/[^\w\s]/g, '');
-    return cleanWord === keywordLower;
-  });
+
+  // FIX: check that the answer contains the keyword phrase (handles multi-word keywords)
+  const normAnswer  = normalise(rawAnswer);
+  const normKeyword = normalise(keyword);
+  return normAnswer.includes(normKeyword);
 }
 
 function checkAnswer(){
   if(answered) return;
   const inp = document.getElementById('answer-input');
   const raw = inp.value.trim();
-  if(!raw) {
-    const fb = document.getElementById('feedback');
+  const fb  = document.getElementById('feedback');
+
+  if(!raw){
     fb.className='feedback bad show';
-    fb.innerHTML='Please enter an answer.';
+    fb.innerHTML='⚠ Please enter an answer before checking.';
     return;
   }
-  
+
   answered=true;
   const q = QUESTIONS[current];
-  const normInput = normalise(raw);
-  
-  const validWordCount = isValidWordCount(raw, q.keyword);
-  const isExactMatch = q.accepted.some(a => normInput === normalise(a));
-  
-  const isCorrect = validWordCount && isExactMatch;
-  
+  const normInput   = normalise(raw);
+  const validWords  = isValidWordCount(raw, q.keyword);
+  const exactMatch  = q.accepted.some(a => normInput === normalise(a));
+  const isCorrect   = validWords && exactMatch;
+
   inp.disabled=true;
   document.getElementById('check-btn').style.display='none';
-  const fb = document.getElementById('feedback');
-  
+
   if(isCorrect){
     inp.className='answer-input correct-input';
     score++; segStates[current]='correct';
@@ -502,21 +538,33 @@ function checkAnswer(){
   } else {
     inp.className='answer-input wrong-input';
     wrongCount++; segStates[current]='wrong';
-    fb.className='feedback bad show';
+
     let reason = '';
-    if(!validWordCount) {
+    if(!validWords){
       const wordCount = raw.trim().split(/\s+/).filter(w => w.length > 0).length;
-      reason = ` (Your answer has ${wordCount} word(s) — must be 2-6 words including the keyword "${q.keyword}".)`;
-    } else if(!isExactMatch) {
-      reason = ` (Your answer doesn't match the correct transformation.)`;
+      const normAnswer = normalise(raw);
+      const normKw     = normalise(q.keyword);
+      if(!normAnswer.includes(normKw)){
+        reason = ` (You must use the keyword <strong>${q.keyword}</strong> without changing it.)`;
+      } else {
+        reason = ` (Your answer has ${wordCount} word${wordCount!==1?'s':''} — must be 2–6 words including the keyword.)`;
+      }
+    } else {
+      reason = ' (The transformation is not quite right.)';
     }
-    fb.innerHTML=`✗ Not quite.${reason} A correct answer: <strong>${q.accepted[0]}</strong>. ${q.exp}`;
+
+    fb.className='feedback bad show';
+    fb.innerHTML=`✗ Not quite.${reason}<br>A correct answer: <strong>${q.accepted[0]}</strong>.<br><br>${q.exp}`;
     answerLog.push({q:q.sentence1, keyword:q.keyword, given:raw, correct:q.accepted[0], result:'wrong'});
   }
+
   updateProg();
   document.getElementById('next-btn').style.display='inline-block';
 }
 
+// ═══════════════════════════════════════════════
+// SKIP
+// ═══════════════════════════════════════════════
 function skipQ(){
   if(answered) return;
   answered=true; skipCount++; segStates[current]='wrong';
@@ -524,90 +572,132 @@ function skipQ(){
   const inp = document.getElementById('answer-input');
   inp.disabled=true;
   document.getElementById('check-btn').style.display='none';
-  const fb = document.getElementById('feedback');
-  fb.className='feedback bad show';
-  fb.innerHTML=`Skipped. A correct answer: <strong>${q.accepted[0]}</strong>. ${q.exp}`;
+  document.getElementById('feedback').className='feedback bad show';
+  document.getElementById('feedback').innerHTML=
+    `Skipped. A correct answer: <strong>${q.accepted[0]}</strong>.<br><br>${q.exp}`;
   answerLog.push({q:q.sentence1, keyword:q.keyword, given:'(skipped)', correct:q.accepted[0], result:'skipped'});
   updateProg();
   document.getElementById('next-btn').style.display='inline-block';
 }
 
+// ═══════════════════════════════════════════════
+// NEXT / END
+// ═══════════════════════════════════════════════
 function nextQ(){
   current++;
-  if(current>=5) endQuiz();
+  if(current >= TOTAL) endQuiz();
   else loadQ();
 }
 
+// ═══════════════════════════════════════════════
+// REVIEW BOX
+// ═══════════════════════════════════════════════
 function buildReview(targetId){
   const box=document.getElementById(targetId);
-  if(!box)return;
+  if(!box) return;
   box.innerHTML=`<div class="review-title">Question Review</div>`;
   answerLog.forEach((a,i)=>{
     const div=document.createElement('div');
     div.className='review-item';
     if(a.result==='correct'){
-      div.innerHTML=`<div class="ri-q">Q${i+1} · <strong>${a.keyword}</strong> · ${a.q}</div><div class="ri-ok">✓ ${a.given}</div>`;
+      div.innerHTML=`
+        <div class="ri-q">Q${i+1} · <strong>${a.keyword}</strong> · ${a.q}</div>
+        <div class="ri-ok">✓ ${a.given}</div>`;
     } else {
-      div.innerHTML=`<div class="ri-q">Q${i+1} · <strong>${a.keyword}</strong> · ${a.q}</div>
-        <div class="ri-yours">✗ You wrote: ${a.given}</div>
+      div.innerHTML=`
+        <div class="ri-q">Q${i+1} · <strong>${a.keyword}</strong> · ${a.q}</div>
+        <div class="ri-yours">✗ You wrote: ${a.given || '(skipped)'}</div>
         <div class="ri-correct">✓ Correct: ${a.correct}</div>`;
     }
     box.appendChild(div);
   });
 }
 
+// ═══════════════════════════════════════════════
+// END QUIZ
+// ═══════════════════════════════════════════════
 function endQuiz(){
   clearInterval(timer);
-  const pct=Math.round((score/5)*100);
-  document.getElementById('result-ring').style.setProperty('--deg',(score/5)*360+'deg');
-  document.getElementById('result-score').innerHTML=`${score}<span>/ 5</span>`;
+  const pct=Math.round((score/TOTAL)*100);
+  document.getElementById('result-ring').style.setProperty('--deg',(score/TOTAL)*360+'deg');
+  document.getElementById('result-score').innerHTML=`${score}<span>/ ${TOTAL}</span>`;
   document.getElementById('rs-correct').textContent=score;
   document.getElementById('rs-wrong').textContent=wrongCount;
   document.getElementById('rs-skip').textContent=skipCount;
+
   let title,sub;
-  if(score===5){title='Perfect Score! 🏆';sub='Outstanding mastery of key word transformation!';}
-  else if(score>=4){title='Excellent! 🎉';sub='Great work — just one to review.';}
-  else if(score>=3){title='Good Effort! 📚';sub='More than halfway there — keep practising.';}
-  else{title='Keep Practising! 💪';sub='Review the grammar rules for each keyword.';}
+  if(score===TOTAL) { title='Perfect Score! 🏆'; sub='Outstanding mastery of key word transformation!'; }
+  else if(score>=Math.ceil(TOTAL*0.8)) { title='Excellent! 🎉'; sub='Great work — just one to review.'; }
+  else if(score>=Math.ceil(TOTAL*0.6)) { title='Good Effort! 📚'; sub='More than halfway there — keep practising.'; }
+  else { title='Keep Practising! 💪'; sub='Review the grammar rules for each keyword.'; }
+
   document.getElementById('result-title').textContent=title;
   document.getElementById('result-sub').textContent=sub;
   buildReview('review-box');
-  sendResults('completed');
+  sendResults('completed', pct);
   show('result-screen');
 }
 
+// ═══════════════════════════════════════════════
+// TIMER
+// ═══════════════════════════════════════════════
 function startTimer(){
-  clearInterval(timer);updateTimerDisplay();
+  clearInterval(timer);
+  updateTimerDisplay();
   timer=setInterval(()=>{
-    timeLeft--;updateTimerDisplay();
-    if(timeLeft<=0){clearInterval(timer);timeOut();}
+    timeLeft--;
+    updateTimerDisplay();
+    if(timeLeft<=0){ clearInterval(timer); timeOut(); }
   },1000);
 }
 
 function updateTimerDisplay(){
-  const m=Math.floor(timeLeft/60),s=timeLeft%60;
+  const m=Math.floor(timeLeft/60), s=timeLeft%60;
   const el=document.getElementById('timer-display');
   el.textContent=`${m}:${s.toString().padStart(2,'0')}`;
   el.className='';
-  if(timeLeft<=30)el.classList.add('danger');
-  else if(timeLeft<=60)el.classList.add('warn');
+  if(timeLeft<=30) el.classList.add('danger');
+  else if(timeLeft<=60) el.classList.add('warn');
 }
 
 function timeOut(){
+  const pct=Math.round((score/TOTAL)*100);
   document.getElementById('to-correct').textContent=score;
   document.getElementById('to-wrong').textContent=wrongCount;
   buildReview('to-review-box');
-  sendResults('timeout');
+  sendResults('timeout', pct);
   show('timeout-screen');
 }
 
-function sendResults(status){
-  const pct=Math.round((score/5)*100);
-  const formData=new FormData();
-  formData.append('name',  studentName);
-  formData.append('score', pct);
-  formData.append('date',  new Date().toLocaleString());
-  fetch(SHEETS_URL,{method:'POST',body:formData});
+// ═══════════════════════════════════════════════
+// SEND RESULTS
+// FIX: added quiz name field; added postMessage bridge for leaderboard
+// ═══════════════════════════════════════════════
+function sendResults(status, pct){
+  const finalPct = (pct !== undefined) ? pct : Math.round((score/TOTAL)*100);
+
+  // ── 1. Send score to parent platform leaderboard ──
+  try {
+    window.parent.postMessage(
+      { type: 'IELTS_QUIZ_SCORE', score: finalPct },
+      '*'
+    );
+    if(status === 'completed'){
+      setTimeout(()=>{
+        const badge = document.getElementById('sent-badge');
+        if(badge) badge.classList.add('show');
+      }, 600);
+    }
+  } catch(e) {}
+
+  // ── 2. Google Sheets ──
+  const formData = new FormData();
+  formData.append('name',   studentName);
+  formData.append('score',  finalPct);
+  formData.append('quiz',   'Key Word Transformation');
+  formData.append('date',   new Date().toLocaleString());
+  formData.append('status', status);
+  fetch(SHEETS_URL, { method:'POST', body:formData }).catch(()=>{});
 }
 </script>
 </body>

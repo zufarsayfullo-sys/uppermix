@@ -329,70 +329,294 @@
 const SHEETS_URL = 'https://script.google.com/macros/s/AKfycbzvhd9K2CVC9_EPkhAEYFDp8K1CBpGUWNrEAEVC4w4Q8eHh5uDFO_aaKPMcH-Tajv5U/exec';
 
 // ═══════════════════════════════════════════════════════════════════════
-// QUESTION BANK
-// BUG FIXES applied:
-//  1. Missing comma before Q6 → added
-//  2. Q6 (In case) was incomplete → filled in sentence1, exp, accepted, display
-//  3. isValidWordCount() now handles multi-word keywords (e.g. "IN CASE")
-//  4. sendResults() now sends quiz name + postMessage bridge to leaderboard
+// QUESTION BANK — 6 topics × 5 questions = 30 total
+// Each attempt randomly picks 1 question per topic → fresh 6-question set
 // ═══════════════════════════════════════════════════════════════════════
-const QUESTIONS = [
-  {
-    keyword: "IF",
-    sentence1: '"Does Azamat play football?" John asked her sister.',
-    sentence2: 'John asked her sister ______.',
-    accepted: ["if Azamat played football"],
-    display:  "John asked her sister ______ .",
-    exp: 'In reported questions with <strong>if</strong>, we use statement word order and backshift the tense: <em>Does → played</em>. → <strong>if Azamat played football</strong>'
-  },
-  {
-    keyword: "MUST",
-    sentence1: "I am sure it was Amir at the cinema.",
-    sentence2: "It ______ Amir at the cinema.",
-    accepted: ["must have been"],
-    display:  "It ______ Amir at the cinema.",
-    exp: 'We use <strong>must have been</strong> to express certainty about a past event. → <strong>must have been</strong> Amir at the cinema.'
-  },
-  {
-    keyword: "DEMANDED",
-    sentence1: "She insisted on buying a new iPhone.",
-    sentence2: "She ______ a new iPhone.",
-    accepted: ["demanded to buy"],
-    display:  "She ______ a new iPhone.",
-    exp: '<strong>demand</strong> is followed by a to-infinitive: <em>demanded to buy</em>. Compare: <em>insist on + -ing</em> vs <em>demand + to-infinitive</em>. → <strong>demanded to buy</strong>'
-  },
-  {
-    keyword: "UNLESS",
-    sentence1: "If I don't study well, I will fail the unit test.",
-    sentence2: "______ , I will fail the unit test.",
-    accepted: ["unless I study well"],
-    display:  "______ , I will fail the unit test.",
-    exp: '<strong>Unless</strong> = <em>if … not</em>. The positive verb is kept: <em>If I don\'t study</em> → <em>Unless I study</em>. → <strong>Unless I study well</strong>'
-  },
-  {
-    keyword: "OBJECTION",
-    sentence1: "My mother didn't object to my getting up late.",
-    sentence2: "My mother didn't ______ getting up late.",
-    accepted: ["have any objection to my"],
-    display:  "My mother didn't ______ getting up late.",
-    exp: 'The noun phrase is <strong>have no objection to</strong> + possessive/object + <em>-ing</em>. → <strong>objection to my</strong> getting up late'
-  },
-  // FIX: was missing comma before this entry, sentence1, exp, and accepted were incomplete
-  {
-    keyword: "IN CASE",
-    sentence1: "Take an umbrella if it rains.",
-    sentence2: "Take an umbrella ______ .",
-    accepted: ["in case it rains", "in case it might rain"],
-    display:  "Take an umbrella ______ .",
-    exp: '<strong>In case</strong> is used to talk about precautions we take for a possible future event. It is followed by a present simple (not <em>might</em>): <em>Take an umbrella in case it rains.</em> → <strong>in case it rains</strong>'
-  }
+
+const QUESTION_BANK = [
+
+  // ── TOPIC 1: Reported Questions (IF) ──
+  [
+    {
+      keyword: "IF",
+      sentence1: '"Does Azamat play football?" John asked his sister.',
+      sentence2: 'John asked his sister ______.',
+      accepted: ["if azamat played football"],
+      display:  "John asked his sister ______ .",
+      exp: 'In reported questions with <strong>if</strong>, we use statement word order and backshift the tense: <em>Does → played</em>. → <strong>if Azamat played football</strong>'
+    },
+    {
+      keyword: "IF",
+      sentence1: '"Are you coming to the party?" she asked him.',
+      sentence2: 'She asked him ______.',
+      accepted: ["if he was coming to the party"],
+      display:  "She asked him ______ .",
+      exp: 'Reported question with <strong>if</strong>: pronoun changes (<em>you → he</em>) and tense backshifts (<em>are coming → was coming</em>). → <strong>if he was coming to the party</strong>'
+    },
+    {
+      keyword: "IF",
+      sentence1: '"Is the museum open on Sundays?" he asked the receptionist.',
+      sentence2: 'He asked the receptionist ______.',
+      accepted: ["if the museum was open on sundays"],
+      display:  "He asked the receptionist ______ .",
+      exp: 'Reported yes/no question with <strong>if</strong>: tense backshifts (<em>is → was</em>). → <strong>if the museum was open on Sundays</strong>'
+    },
+    {
+      keyword: "IF",
+      sentence1: '"Do you like spicy food?" the host asked her.',
+      sentence2: 'The host asked her ______.',
+      accepted: ["if she liked spicy food"],
+      display:  "The host asked her ______ .",
+      exp: 'Reported question with <strong>if</strong>: pronoun changes (<em>you → she</em>) and tense backshifts (<em>do like → liked</em>). → <strong>if she liked spicy food</strong>'
+    },
+    {
+      keyword: "IF",
+      sentence1: '"Is your brother at home?" Kamila asked him.',
+      sentence2: 'Kamila asked him ______.',
+      accepted: ["if his brother was at home"],
+      display:  "Kamila asked him ______ .",
+      exp: 'Reported question with <strong>if</strong>: possessive pronoun changes (<em>your → his</em>) and tense backshifts (<em>is → was</em>). → <strong>if his brother was at home</strong>'
+    }
+  ],
+
+  // ── TOPIC 2: Past Certainty (MUST) ──
+  [
+    {
+      keyword: "MUST",
+      sentence1: "I am sure it was Amir at the cinema.",
+      sentence2: "It ______ Amir at the cinema.",
+      accepted: ["must have been"],
+      display:  "It ______ Amir at the cinema.",
+      exp: 'We use <strong>must have been</strong> to express certainty about a past event. → <strong>must have been</strong> Amir at the cinema.'
+    },
+    {
+      keyword: "MUST",
+      sentence1: "I'm certain she forgot her keys.",
+      sentence2: "She ______ her keys.",
+      accepted: ["must have forgotten"],
+      display:  "She ______ her keys.",
+      exp: '<strong>Must have forgotten</strong> expresses past certainty. Irregular past participle: <em>forget → forgotten</em>. → <strong>must have forgotten</strong> her keys.'
+    },
+    {
+      keyword: "MUST",
+      sentence1: "I'm sure they left before midnight.",
+      sentence2: "They ______ before midnight.",
+      accepted: ["must have left"],
+      display:  "They ______ before midnight.",
+      exp: '<strong>Must have left</strong> expresses certainty about a past action. Irregular past participle: <em>leave → left</em>. → <strong>must have left</strong> before midnight.'
+    },
+    {
+      keyword: "MUST",
+      sentence1: "I'm certain he missed the last bus.",
+      sentence2: "He ______ the last bus.",
+      accepted: ["must have missed"],
+      display:  "He ______ the last bus.",
+      exp: '<strong>Must have missed</strong> expresses past certainty. → <strong>must have missed</strong> the last bus.'
+    },
+    {
+      keyword: "MUST",
+      sentence1: "I'm sure the children were tired after the trip.",
+      sentence2: "The children ______ tired after the trip.",
+      accepted: ["must have been"],
+      display:  "The children ______ tired after the trip.",
+      exp: '<strong>Must have been</strong> expresses certainty about a past state. → <strong>must have been</strong> tired after the trip.'
+    }
+  ],
+
+  // ── TOPIC 3: Demand + to-infinitive (DEMANDED) ──
+  [
+    {
+      keyword: "DEMANDED",
+      sentence1: "She insisted on buying a new iPhone.",
+      sentence2: "She ______ a new iPhone.",
+      accepted: ["demanded to buy"],
+      display:  "She ______ a new iPhone.",
+      exp: '<strong>demand</strong> is followed by a to-infinitive: <em>demanded to buy</em>. Compare: <em>insist on + -ing</em> vs <em>demand + to-infinitive</em>. → <strong>demanded to buy</strong>'
+    },
+    {
+      keyword: "DEMANDED",
+      sentence1: "He insisted on speaking to the manager.",
+      sentence2: "He ______ to the manager.",
+      accepted: ["demanded to speak"],
+      display:  "He ______ to the manager.",
+      exp: '<strong>demand + to-infinitive</strong>: <em>insist on speaking → demanded to speak</em>. → <strong>demanded to speak</strong> to the manager.'
+    },
+    {
+      keyword: "DEMANDED",
+      sentence1: "They insisted on receiving a full refund.",
+      sentence2: "They ______ a full refund.",
+      accepted: ["demanded to receive"],
+      display:  "They ______ a full refund.",
+      exp: '<strong>demand + to-infinitive</strong>: <em>insist on receiving → demanded to receive</em>. → <strong>demanded to receive</strong> a full refund.'
+    },
+    {
+      keyword: "DEMANDED",
+      sentence1: "She insisted on seeing the doctor immediately.",
+      sentence2: "She ______ the doctor immediately.",
+      accepted: ["demanded to see"],
+      display:  "She ______ the doctor immediately.",
+      exp: '<strong>demand + to-infinitive</strong>: <em>insist on seeing → demanded to see</em>. → <strong>demanded to see</strong> the doctor immediately.'
+    },
+    {
+      keyword: "DEMANDED",
+      sentence1: "He insisted on knowing the reason for the delay.",
+      sentence2: "He ______ the reason for the delay.",
+      accepted: ["demanded to know"],
+      display:  "He ______ the reason for the delay.",
+      exp: '<strong>demand + to-infinitive</strong>: <em>insist on knowing → demanded to know</em>. → <strong>demanded to know</strong> the reason for the delay.'
+    }
+  ],
+
+  // ── TOPIC 4: Unless ──
+  [
+    {
+      keyword: "UNLESS",
+      sentence1: "If I don't study well, I will fail the unit test.",
+      sentence2: "______ , I will fail the unit test.",
+      accepted: ["unless i study well"],
+      display:  "______ , I will fail the unit test.",
+      exp: '<strong>Unless</strong> = <em>if … not</em>. The positive verb is kept: <em>If I don\'t study</em> → <em>Unless I study</em>. → <strong>Unless I study well</strong>'
+    },
+    {
+      keyword: "UNLESS",
+      sentence1: "If you don't leave now, you'll miss the train.",
+      sentence2: "______ , you'll miss the train.",
+      accepted: ["unless you leave now"],
+      display:  "______ , you'll miss the train.",
+      exp: '<strong>Unless</strong> replaces <em>if … not</em> and the verb stays positive: <em>don\'t leave → leave</em>. → <strong>Unless you leave now</strong>'
+    },
+    {
+      keyword: "UNLESS",
+      sentence1: "If she doesn't apologise, I won't forgive her.",
+      sentence2: "______ , I won't forgive her.",
+      accepted: ["unless she apologises"],
+      display:  "______ , I won't forgive her.",
+      exp: '<strong>Unless</strong> = <em>if … not</em>. Note the spelling: <em>apologise</em> (British English). → <strong>Unless she apologises</strong>'
+    },
+    {
+      keyword: "UNLESS",
+      sentence1: "If he doesn't hurry, he'll be late for school.",
+      sentence2: "______ , he'll be late for school.",
+      accepted: ["unless he hurries"],
+      display:  "______ , he'll be late for school.",
+      exp: '<strong>Unless</strong> = <em>if … not</em>. Note the spelling change: <em>hurry → hurries</em>. → <strong>Unless he hurries</strong>'
+    },
+    {
+      keyword: "UNLESS",
+      sentence1: "If they don't book in advance, they won't get tickets.",
+      sentence2: "______ , they won't get tickets.",
+      accepted: ["unless they book in advance"],
+      display:  "______ , they won't get tickets.",
+      exp: '<strong>Unless</strong> = <em>if … not</em>. Verb stays positive: <em>don\'t book → book</em>. → <strong>Unless they book in advance</strong>'
+    }
+  ],
+
+  // ── TOPIC 5: Have no objection to (OBJECTION) ──
+  [
+    {
+      keyword: "OBJECTION",
+      sentence1: "My mother didn't object to my getting up late.",
+      sentence2: "My mother didn't ______ getting up late.",
+      accepted: ["have any objection to my"],
+      display:  "My mother didn't ______ getting up late.",
+      exp: 'The noun phrase is <strong>have no/any objection to</strong> + possessive + <em>-ing</em>. → <strong>have any objection to my</strong> getting up late.'
+    },
+    {
+      keyword: "OBJECTION",
+      sentence1: "He didn't object to her staying longer.",
+      sentence2: "He didn't ______ staying longer.",
+      accepted: ["have any objection to her"],
+      display:  "He didn't ______ staying longer.",
+      exp: '<strong>have any objection to</strong> + possessive + <em>-ing</em>. → <strong>have any objection to her</strong> staying longer.'
+    },
+    {
+      keyword: "OBJECTION",
+      sentence1: "They didn't object to us using the conference room.",
+      sentence2: "They didn't ______ using the conference room.",
+      accepted: ["have any objection to us"],
+      display:  "They didn't ______ using the conference room.",
+      exp: '<strong>have any objection to</strong> + object pronoun + <em>-ing</em>. → <strong>have any objection to us</strong> using the conference room.'
+    },
+    {
+      keyword: "OBJECTION",
+      sentence1: "She didn't object to him borrowing her car.",
+      sentence2: "She didn't ______ borrowing her car.",
+      accepted: ["have any objection to him"],
+      display:  "She didn't ______ borrowing her car.",
+      exp: '<strong>have any objection to</strong> + object pronoun + <em>-ing</em>. → <strong>have any objection to him</strong> borrowing her car.'
+    },
+    {
+      keyword: "OBJECTION",
+      sentence1: "The teacher didn't object to the students leaving early.",
+      sentence2: "The teacher didn't ______ leaving early.",
+      accepted: ["have any objection to the students"],
+      display:  "The teacher didn't ______ leaving early.",
+      exp: '<strong>have any objection to</strong> + noun phrase + <em>-ing</em>. → <strong>have any objection to the students</strong> leaving early.'
+    }
+  ],
+
+  // ── TOPIC 6: In case ──
+  [
+    {
+      keyword: "IN CASE",
+      sentence1: "Take an umbrella if it rains.",
+      sentence2: "Take an umbrella ______ .",
+      accepted: ["in case it rains", "in case it might rain"],
+      display:  "Take an umbrella ______ .",
+      exp: '<strong>In case</strong> is used for precautions against a possible future event, followed by present simple. → <strong>in case it rains</strong>'
+    },
+    {
+      keyword: "IN CASE",
+      sentence1: "Save the document regularly so you don't lose your work.",
+      sentence2: "Save the document regularly ______ .",
+      accepted: ["in case you lose your work"],
+      display:  "Save the document regularly ______ .",
+      exp: '<strong>In case</strong> expresses a precaution. We use present simple after it, not <em>will</em>. → <strong>in case you lose your work</strong>'
+    },
+    {
+      keyword: "IN CASE",
+      sentence1: "Write down the address so you don't forget it.",
+      sentence2: "Write down the address ______ .",
+      accepted: ["in case you forget it"],
+      display:  "Write down the address ______ .",
+      exp: '<strong>In case</strong> + present simple describes a precaution. → <strong>in case you forget it</strong>'
+    },
+    {
+      keyword: "IN CASE",
+      sentence1: "Charge your phone now because the battery might die later.",
+      sentence2: "Charge your phone now ______ .",
+      accepted: ["in case the battery dies"],
+      display:  "Charge your phone now ______ .",
+      exp: '<strong>In case</strong> + present simple (not <em>might</em>) describes a precaution for a possible future problem. → <strong>in case the battery dies</strong>'
+    },
+    {
+      keyword: "IN CASE",
+      sentence1: "Take some cash because the card machine might not work.",
+      sentence2: "Take some cash ______ .",
+      accepted: ["in case the card machine doesn't work", "in case they don't accept cards"],
+      display:  "Take some cash ______ .",
+      exp: '<strong>In case</strong> + present simple describes a precaution. → <strong>in case the card machine doesn\'t work</strong>'
+    }
+  ]
+
 ];
 
-const TOTAL = QUESTIONS.length; // 6
+const TOTAL = QUESTION_BANK.length; // 6 topics → 6 questions per attempt
+
+// ═══════════════════════════════════════════════
+// RANDOM SELECTION — pick 1 from each topic bank
+// ═══════════════════════════════════════════════
+function buildQuestionSet() {
+  return QUESTION_BANK.map(topicBank => {
+    const idx = Math.floor(Math.random() * topicBank.length);
+    return topicBank[idx];
+  });
+}
 
 // ═══════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════
+let QUESTIONS = [];
 let current=0, score=0, wrongCount=0, skipCount=0;
 let answered=false, timer=null, timeLeft=300, segStates=[];
 let studentName='', answerLog=[];
@@ -415,6 +639,7 @@ function confirmName(){
 }
 
 function startQuiz(){
+  QUESTIONS = buildQuestionSet(); // fresh random set each attempt
   answerLog=[];
   current=0;score=0;wrongCount=0;skipCount=0;
   timeLeft=300;answered=false;
@@ -485,23 +710,18 @@ function loadQ(){
 
 // ═══════════════════════════════════════════════
 // ANSWER CHECKING
-// FIX: normalise handles multi-word keywords properly
-// FIX: isValidWordCount checks the full keyword string, not just individual words
 // ═══════════════════════════════════════════════
 function normalise(str){
   return str
     .toLowerCase()
-    .replace(/['']/g, "'")   // smart quotes → straight
+    .replace(/['']/g, "'")
     .replace(/\s+/g, ' ')
     .trim();
 }
 
 function isValidWordCount(rawAnswer, keyword){
-  // Count words in the answer (contractions = 2 words per rule, but we just count tokens)
   const words = rawAnswer.trim().split(/\s+/).filter(w => w.length > 0);
   if(words.length < 2 || words.length > 6) return false;
-
-  // FIX: check that the answer contains the keyword phrase (handles multi-word keywords)
   const normAnswer  = normalise(rawAnswer);
   const normKeyword = normalise(keyword);
   return normAnswer.includes(normKeyword);
@@ -671,12 +891,10 @@ function timeOut(){
 
 // ═══════════════════════════════════════════════
 // SEND RESULTS
-// FIX: added quiz name field; added postMessage bridge for leaderboard
 // ═══════════════════════════════════════════════
 function sendResults(status, pct){
   const finalPct = (pct !== undefined) ? pct : Math.round((score/TOTAL)*100);
 
-  // ── 1. Send score to parent platform leaderboard ──
   try {
     window.parent.postMessage(
       { type: 'IELTS_QUIZ_SCORE', score: finalPct },
@@ -690,7 +908,6 @@ function sendResults(status, pct){
     }
   } catch(e) {}
 
-  // ── 2. Google Sheets ──
   const formData = new FormData();
   formData.append('name',   studentName);
   formData.append('score',  finalPct);
